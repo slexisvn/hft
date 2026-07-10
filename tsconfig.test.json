@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "noEmit": true,
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@hft/contracts": ["packages/contracts/src/index.ts"],
+      "@hft/events": ["packages/events/src/index.ts"],
+      "@hft/book": ["packages/book/src/index.ts"],
+      "@hft/metrics": ["packages/metrics/src/index.ts"],
+      "@hft/numeric": ["packages/numeric/src/index.ts"],
+      "@hft/sim": ["packages/sim/src/index.ts"],
+      "@hft/strategy": ["packages/strategy/src/index.ts"],
+      "@hft/live": ["packages/live/src/index.ts"],
+      "@hft/lobster": ["packages/adapters/lobster/src/index.ts"],
+      "@hft/binance": ["packages/adapters/binance/src/index.ts"]
+    }
+  },
+  "include": ["packages/**/test/**/*.ts", "tests/**/*.ts"]
+}

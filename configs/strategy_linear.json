@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "name": "linear_baseline",
+  "input": {
+    "messagePath": "packages/adapters/lobster/test/fixtures/synth_message.csv"
+  },
+  "sweep": {
+    "gammaGrid": [0.05],
+    "kappaGrid": [3.0]
+  },
+  "instrument": {
+    "symbol": "SYNTH",
+    "tickSize": 0.01,
+    "lotSize": 1,
+    "priceScale": 10000,
+    "minPriceTicks": 9700,
+    "maxPriceTicks": 10300
+  },
+  "latency": {
+    "marketDataNs": 500000,
+    "decisionNs": 100000,
+    "orderEntryNs": 900000
+  },
+  "sim": {
+    "seed": 20260710,
+    "makerFeeBps": -1,
+    "takerFeeBps": 5,
+    "initialOrderCapacity": 4096
+  },
+  "book": {
+    "snapshotDepth": 10
+  },
+  "metrics": {
+    "markoutHorizonsNs": [100000000, 1000000000, 10000000000],
+    "realizedSpreadHorizonNs": 1000000000,
+    "ofiWindowNs": 100000000,
+    "inventorySampleIntervalNs": 100000000
+  },
+  "strategy": {
+    "kind": "linear",
+    "modelPath": "out/model.json",
+    "features": ["ofi", "depth_imbalance"],
+    "entryThreshold": 0.05,
+    "orderSize": 10,
+    "skewTicksPerUnit": 0.5,
+    "baseHalfSpreadTicks": 0.5,
+    "requoteThresholdTicks": 1,
+    "maxPosition": 200
+  },
+  "risk": {
+    "maxPosition": 500,
+    "maxLossTicks": 100000,
+    "maxOrdersPerSecond": 50,
+    "reconcileToleranceQty": 0
+  },
+  "live": {
+    "restEndpoint": "https://api.binance.com",
+    "wsEndpoint": "wss://stream.binance.com:9443",
+    "rateLimit": {
+      "capacityTokens": 50,
+      "refillTokensPerSecond": 10
+    },
+    "reconcileIntervalNs": 5000000000,
+    "resyncOnSequenceGap": true
+  },
+  "train": {
+    "ridgeLambda": 1.0,
+    "horizonNs": 1000000000,
+    "gridIntervalNs": 100000000,
+    "trainFraction": 0.7,
+    "standardizeFeatures": true,
+    "features": ["ofi", "depth_imbalance"],
+    "modelPath": "out/model.json"
+  },
+  "output": {
+    "format": "csv",
+    "featuresPath": "out/features_linear.csv",
+    "fillsPath": "out/fills_linear.csv",
+    "metricsPath": "out/metrics_linear.json",
+    "liveFillsPath": "out/live_fills.csv"
+  }
+}

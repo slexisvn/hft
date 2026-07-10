@@ -1,0 +1,35 @@
+# dependencies
+node_modules/
+
+# typescript build output
+dist/
+*.tsbuildinfo
+
+# market data: LOBSTER samples are downloaded, never committed
+data/*
+!data/.gitkeep
+
+# generated artifacts: features.csv, fills.csv, metrics.json, model.json, live_fills.csv
+out/
+
+# test and coverage output
+coverage/
+.vitest/
+
+# secrets: exchange api keys never belong in the repo
+.env
+.env.*
+*.key
+*.pem
+
+# logs and crash dumps
+*.log
+npm-debug.log*
+report.*.json
+
+# editors and os
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

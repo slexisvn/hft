@@ -1,0 +1,10 @@
+{
+  "name": "@hft/bench",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/book_bench.js",
+  "dependencies": {
+    "@hft/contracts": "*",
+    "@hft/book": "*"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "@hft/app-sweep",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/main.js",
+  "dependencies": {
+    "@hft/contracts": "*",
+    "@hft/metrics": "*",
+    "@hft/sim": "*",
+    "@hft/strategy": "*",
+    "@hft/lobster": "*"
+  }
+}

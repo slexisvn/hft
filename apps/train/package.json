@@ -1,0 +1,11 @@
+{
+  "name": "@hft/app-train",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/main.js",
+  "dependencies": {
+    "@hft/contracts": "*",
+    "@hft/metrics": "*",
+    "@hft/numeric": "*"
+  }
+}

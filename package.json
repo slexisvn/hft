@@ -1,0 +1,39 @@
+{
+  "name": "hft",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Zero-dependency TypeScript HFT research + live stack (ports and adapters).",
+  "workspaces": [
+    "packages/contracts",
+    "packages/events",
+    "packages/book",
+    "packages/metrics",
+    "packages/numeric",
+    "packages/sim",
+    "packages/strategy",
+    "packages/live",
+    "packages/adapters/lobster",
+    "packages/adapters/binance",
+    "apps/backtest",
+    "apps/sweep",
+    "apps/train",
+    "apps/live",
+    "bench"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "tsc -b --clean",
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "bench": "npm run build && node bench/dist/book_bench.js",
+    "backtest": "npm run build && node apps/backtest/dist/main.js",
+    "train": "npm run build && node apps/train/dist/main.js",
+    "sweep": "npm run build && node apps/sweep/dist/main.js",
+    "live": "npm run build && node apps/live/dist/main.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "5.6.3",
+    "vitest": "2.1.9"
+  }
+}

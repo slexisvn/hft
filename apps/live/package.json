@@ -1,0 +1,13 @@
+{
+  "name": "@hft/app-live",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/main.js",
+  "dependencies": {
+    "@hft/contracts": "*",
+    "@hft/events": "*",
+    "@hft/live": "*",
+    "@hft/strategy": "*",
+    "@hft/binance": "*"
+  }
+}
