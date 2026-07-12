@@ -13,6 +13,7 @@ import { TwoSidedQuoter, defaultIdFactory } from '@hft/strategy';
 class FakeGateway implements Gateway {
   readonly submitted: OrderRequest[] = [];
   readonly canceled: string[] = [];
+  readonly amended: { clientOrderId: string; newSize: number }[] = [];
   open: OrderSnapshot[] = [];
   pos = 0;
 
@@ -30,6 +31,9 @@ class FakeGateway implements Gateway {
   cancel(clientOrderId: string): void {
     this.canceled.push(clientOrderId);
     this.open = this.open.filter((o) => o.clientOrderId !== clientOrderId);
+  }
+  amend(clientOrderId: string, newSize: number): void {
+    this.amended.push({ clientOrderId, newSize });
   }
   openOrders(): readonly OrderSnapshot[] {
     return this.open;
@@ -57,6 +61,17 @@ describe('position limit at the strategy layer', () => {
     desire(q, g, SIDE_BID, 100, 10, 20);
     desire(q, g, SIDE_ASK, 101, 10, 20);
     expect(g.submitted.length).toBe(2);
+  });
+
+  it('amends down in place at a stable price instead of cancel-replacing, keeping queue priority', () => {
+    const g = new FakeGateway();
+    const q = quoter();
+    desire(q, g, SIDE_BID, 100, 10, 1000);
+    expect(g.submitted.length).toBe(1);
+    desire(q, g, SIDE_BID, 100, 4, 1000);
+    expect(g.amended).toEqual([{ clientOrderId: g.submitted[0].clientOrderId, newSize: 4 }]);
+    expect(g.submitted.length).toBe(1);
+    expect(g.canceled).toEqual([]);
   });
 
   it('withdraws the bid once buying more would breach the long limit', () => {

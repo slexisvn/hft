@@ -9,6 +9,7 @@ import {
 export interface GatewayBackend {
   onSubmit(request: OrderRequest, submittedAtNs: number): void;
   onCancel(clientOrderId: string, submittedAtNs: number): void;
+  onAmend(clientOrderId: string, newSize: number, submittedAtNs: number): void;
   snapshots(): readonly OrderSnapshot[];
   netPosition(): number;
   view(): BookView;
@@ -43,6 +44,10 @@ export class SimGateway implements Gateway {
 
   cancel(clientOrderId: string): void {
     this.backend.onCancel(clientOrderId, this.nowNs());
+  }
+
+  amend(clientOrderId: string, newSize: number): void {
+    this.backend.onAmend(clientOrderId, newSize, this.nowNs());
   }
 
   openOrders(): readonly OrderSnapshot[] {

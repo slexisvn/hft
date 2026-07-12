@@ -6,9 +6,11 @@
   "dependencies": {
     "@hft/contracts": "*",
     "@hft/events": "*",
+    "@hft/numeric": "*",
     "@hft/metrics": "*",
     "@hft/sim": "*",
     "@hft/strategy": "*",
+    "@hft/live": "*",
     "@hft/lobster": "*"
   }
 }

@@ -18,6 +18,7 @@
     "apps/sweep",
     "apps/train",
     "apps/live",
+    "apps/compare",
     "bench"
   ],
   "scripts": {
@@ -26,10 +27,12 @@
     "typecheck": "tsc -b && tsc -p tsconfig.test.json",
     "test": "vitest run",
     "bench": "npm run build && node bench/dist/book_bench.js",
+    "bench:sim": "npm run build && node bench/dist/sim_bench.js",
     "backtest": "npm run build && node apps/backtest/dist/main.js",
     "train": "npm run build && node apps/train/dist/main.js",
     "sweep": "npm run build && node apps/sweep/dist/main.js",
-    "live": "npm run build && node apps/live/dist/main.js"
+    "live": "npm run build && node apps/live/dist/main.js",
+    "compare": "npm run build && node apps/compare/dist/main.js"
   },
   "dependencies": {},
   "devDependencies": {

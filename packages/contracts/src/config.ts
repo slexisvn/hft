@@ -1,3 +1,4 @@
+import type { OutputFormat } from './csv';
 import { ConfigError } from './errors';
 import { SCHEMA_VERSION } from './schema';
 import { validate, type Spec } from './validate';
@@ -11,10 +12,16 @@ export interface InstrumentConfig {
   readonly maxPriceTicks: number;
 }
 
+export type LatencyModelConfig =
+  | { readonly kind: 'constant' }
+  | { readonly kind: 'lognormal'; readonly sigma: number }
+  | { readonly kind: 'empirical'; readonly path: string };
+
 export interface LatencyConfig {
   readonly marketDataNs: number;
   readonly decisionNs: number;
   readonly orderEntryNs: number;
+  readonly orderModel?: LatencyModelConfig;
 }
 
 export interface SimConfig {
@@ -22,6 +29,7 @@ export interface SimConfig {
   readonly makerFeeBps: number;
   readonly takerFeeBps: number;
   readonly initialOrderCapacity: number;
+  readonly sqrtImpactCoeff?: number;
 }
 
 export interface MetricsConfig {
@@ -29,6 +37,7 @@ export interface MetricsConfig {
   readonly realizedSpreadHorizonNs: number;
   readonly ofiWindowNs: number;
   readonly inventorySampleIntervalNs: number;
+  readonly maxOrderDepthRatioP95?: number;
 }
 
 export interface BookConfig {
@@ -82,6 +91,8 @@ export interface LiveConfig {
   readonly resyncOnSequenceGap: boolean;
 }
 
+export type TrainTarget = 'mid_change' | 'cost_adjusted';
+
 export interface TrainConfig {
   readonly ridgeLambda: number;
   readonly horizonNs: number;
@@ -90,10 +101,14 @@ export interface TrainConfig {
   readonly standardizeFeatures: boolean;
   readonly features: readonly string[];
   readonly modelPath: string;
+  readonly target?: TrainTarget;
+  readonly lambdaGrid?: readonly number[];
+  readonly cvFolds?: number;
+  readonly embargoRows?: number;
 }
 
 export interface OutputConfig {
-  readonly format: 'csv';
+  readonly format: OutputFormat;
   readonly featuresPath: string;
   readonly fillsPath: string;
   readonly metricsPath: string;
@@ -190,11 +205,38 @@ export const STRATEGY_CONFIG_SPEC: Spec = {
     },
     latency: {
       kind: 'object',
-      fields: { marketDataNs: nonNegInt, decisionNs: nonNegInt, orderEntryNs: nonNegInt },
+      fields: {
+        marketDataNs: nonNegInt,
+        decisionNs: nonNegInt,
+        orderEntryNs: nonNegInt,
+        orderModel: {
+          kind: 'tagged',
+          tag: 'kind',
+          variants: {
+            constant: { kind: 'object', fields: { kind: { kind: 'string', values: ['constant'] } } },
+            lognormal: {
+              kind: 'object',
+              fields: { kind: { kind: 'string', values: ['lognormal'] }, sigma: posNum },
+            },
+            empirical: {
+              kind: 'object',
+              fields: { kind: { kind: 'string', values: ['empirical'] }, path: str },
+            },
+          },
+        },
+      },
+      optional: ['orderModel'],
     },
     sim: {
       kind: 'object',
-      fields: { seed: nonNegInt, makerFeeBps: anyNum, takerFeeBps: anyNum, initialOrderCapacity: posInt },
+      fields: {
+        seed: nonNegInt,
+        makerFeeBps: anyNum,
+        takerFeeBps: anyNum,
+        initialOrderCapacity: posInt,
+        sqrtImpactCoeff: nonNegNum,
+      },
+      optional: ['sqrtImpactCoeff'],
     },
     book: { kind: 'object', fields: { snapshotDepth: posInt } },
     metrics: {
@@ -204,7 +246,9 @@ export const STRATEGY_CONFIG_SPEC: Spec = {
         realizedSpreadHorizonNs: posInt,
         ofiWindowNs: posInt,
         inventorySampleIntervalNs: posInt,
+        maxOrderDepthRatioP95: posNum,
       },
+      optional: ['maxOrderDepthRatioP95'],
     },
     strategy: {
       kind: 'tagged',
@@ -240,7 +284,12 @@ export const STRATEGY_CONFIG_SPEC: Spec = {
         standardizeFeatures: { kind: 'boolean' },
         features: { kind: 'array', item: str, minLength: 1 },
         modelPath: str,
+        target: { kind: 'string', values: ['mid_change', 'cost_adjusted'] },
+        lambdaGrid: { kind: 'array', item: nonNegNum, minLength: 1 },
+        cvFolds: { kind: 'number', int: true, min: 2 },
+        embargoRows: nonNegInt,
       },
+      optional: ['target', 'lambdaGrid', 'cvFolds', 'embargoRows'],
     },
     output: {
       kind: 'object',
@@ -269,6 +318,11 @@ export function parseStrategyConfig(raw: unknown): StrategyConfig {
   if (cfg.strategy.maxPosition > cfg.risk.maxPosition) {
     throw new ConfigError(
       `$.strategy.maxPosition (${cfg.strategy.maxPosition}) must not exceed $.risk.maxPosition (${cfg.risk.maxPosition})`,
+    );
+  }
+  if (cfg.strategy.orderSize % cfg.instrument.lotSize !== 0) {
+    throw new ConfigError(
+      `$.strategy.orderSize (${cfg.strategy.orderSize}) must be a multiple of $.instrument.lotSize (${cfg.instrument.lotSize})`,
     );
   }
   return cfg;

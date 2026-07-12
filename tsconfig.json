@@ -15,6 +15,7 @@
     { "path": "apps/sweep" },
     { "path": "apps/train" },
     { "path": "apps/live" },
+    { "path": "apps/compare" },
     { "path": "bench" }
   ]
 }

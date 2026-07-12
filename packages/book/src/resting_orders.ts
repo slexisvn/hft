@@ -5,11 +5,13 @@ export interface RestingOrder {
   readonly clientOrderId: string;
   readonly side: Side;
   readonly priceTicks: Ticks;
-  readonly size: number;
+  size: number;
   remaining: number;
   cursor: CursorId;
   state: OrderState;
 }
+
+export type AmendOutcome = 'amended' | 'removed' | 'rejected' | 'unknown';
 
 function levelKey(side: Side, priceTicks: Ticks): number {
   return side * 0x40000000 + priceTicks;
@@ -58,6 +60,20 @@ export class RestingOrders {
     if (bucket === undefined) this.byLevel.set(key, [order]);
     else bucket.push(order);
     return order;
+  }
+
+  amendSize(book: OrderBook, clientOrderId: string, newSize: number): AmendOutcome {
+    const order = this.orders.get(clientOrderId);
+    if (order === undefined) return 'unknown';
+    const filled = order.size - order.remaining;
+    if (newSize >= order.size) return 'rejected';
+    if (newSize <= filled) {
+      this.remove(book, clientOrderId, 'filled');
+      return 'removed';
+    }
+    order.size = newSize;
+    order.remaining = newSize - filled;
+    return 'amended';
   }
 
   remove(book: OrderBook, clientOrderId: string, state: OrderState): RestingOrder | undefined {

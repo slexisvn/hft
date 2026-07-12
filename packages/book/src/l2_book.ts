@@ -10,6 +10,7 @@ import {
   type Side,
   type Ticks,
 } from '@hft/contracts';
+import { LevelBitset } from './level_bitset';
 
 export interface L2BookOptions {
   readonly minPriceTicks: number;
@@ -23,6 +24,7 @@ export class L2Book implements BookView {
   readonly maxPriceTicks: number;
   private readonly levelCount: number;
   private readonly size: Int32Array;
+  private readonly occupied: LevelBitset;
 
   private cursorCap = 16;
   private cLevel = new Int32Array(this.cursorCap).fill(NIL);
@@ -45,6 +47,7 @@ export class L2Book implements BookView {
     this.maxPriceTicks = opts.maxPriceTicks;
     this.levelCount = opts.maxPriceTicks - opts.minPriceTicks + 1;
     this.size = new Int32Array(this.levelCount * 2);
+    this.occupied = new LevelBitset(this.levelCount * 2);
     this.lvlCursorHead = new Int32Array(this.levelCount * 2).fill(NIL);
   }
 
@@ -67,6 +70,9 @@ export class L2Book implements BookView {
     const li = this.levelIndex(side, priceTicks);
     const previous = this.size[li];
     this.size[li] = newSize;
+
+    if (newSize > 0 && previous === 0) this.occupied.set(li);
+    else if (newSize === 0 && previous > 0) this.occupied.clear(li);
 
     if (newSize < previous) this.clampCursors(li, newSize);
 
@@ -104,28 +110,19 @@ export class L2Book implements BookView {
   private repairBest(side: Side, priceTicks: Ticks): void {
     if (side === SIDE_BID) {
       if (priceTicks !== this.bestBid) return;
-      for (let t = priceTicks - 1; t >= this.minPriceTicks; t--) {
-        if (this.size[t - this.minPriceTicks] > 0) {
-          this.bestBid = t;
-          return;
-        }
-      }
-      this.bestBid = NO_PRICE;
+      const li = this.occupied.prevSetAtOrBelow(priceTicks - this.minPriceTicks - 1);
+      this.bestBid = li < 0 ? NO_PRICE : li + this.minPriceTicks;
       return;
     }
     if (priceTicks !== this.bestAsk) return;
     const base = this.levelCount;
-    for (let t = priceTicks + 1; t <= this.maxPriceTicks; t++) {
-      if (this.size[base + (t - this.minPriceTicks)] > 0) {
-        this.bestAsk = t;
-        return;
-      }
-    }
-    this.bestAsk = NO_PRICE;
+    const li = this.occupied.nextSetAtOrAbove(base + (priceTicks - this.minPriceTicks) + 1);
+    this.bestAsk = li < 0 ? NO_PRICE : li - base + this.minPriceTicks;
   }
 
   reset(): void {
     this.size.fill(0);
+    this.occupied.clearAll();
     this.lvlCursorHead.fill(NIL);
     this.cursorFree = NIL;
     this.cursorTop = 0;

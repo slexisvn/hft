@@ -1,5 +1,6 @@
 import { performance } from 'node:perf_hooks';
 import {
+  NANOS_PER_DAY,
   NANOS_PER_MILLI,
   type Clock,
   type Nanos,
@@ -7,24 +8,39 @@ import {
   type TimerId,
 } from '@hft/contracts';
 
-export class RealClock implements Clock {
-  private readonly baseNanosFromMidnight: number;
-  private readonly basePerfMs: number;
+function nanosFromMidnightUtc(nowMs: number): number {
+  const date = new Date(nowMs);
+  const msFromMidnight =
+    date.getUTCHours() * 3600000 +
+    date.getUTCMinutes() * 60000 +
+    date.getUTCSeconds() * 1000 +
+    date.getUTCMilliseconds();
+  return msFromMidnight * NANOS_PER_MILLI;
+}
 
-  constructor(nowMs: number = Date.now(), perfMs: number = performance.now()) {
-    const date = new Date(nowMs);
-    const msFromMidnightUtc =
-      date.getUTCHours() * 3600000 +
-      date.getUTCMinutes() * 60000 +
-      date.getUTCSeconds() * 1000 +
-      date.getUTCMilliseconds();
-    this.baseNanosFromMidnight = msFromMidnightUtc * NANOS_PER_MILLI;
-    this.basePerfMs = perfMs;
+export class RealClock implements Clock {
+  private baseNanosFromMidnight: number;
+  private basePerfMs: number;
+  private readonly perfNow: () => number;
+
+  constructor(nowMs: number = Date.now(), perfNow: () => number = () => performance.now()) {
+    this.perfNow = perfNow;
+    this.baseNanosFromMidnight = nanosFromMidnightUtc(nowMs);
+    this.basePerfMs = perfNow();
   }
 
   now(): Nanos {
-    const elapsedMs = performance.now() - this.basePerfMs;
+    const elapsedMs = this.perfNow() - this.basePerfMs;
     return Math.round(this.baseNanosFromMidnight + elapsedMs * NANOS_PER_MILLI);
+  }
+
+  resync(nowMs: number): void {
+    this.baseNanosFromMidnight = nanosFromMidnightUtc(nowMs);
+    this.basePerfMs = this.perfNow();
+  }
+
+  wallNanosFromMidnight(): Nanos {
+    return ((this.now() % NANOS_PER_DAY) + NANOS_PER_DAY) % NANOS_PER_DAY;
   }
 }
 
@@ -39,6 +55,10 @@ export class RealSchedulingClock implements SchedulingClock {
 
   now(): Nanos {
     return this.clock.now();
+  }
+
+  resync(nowMs: number): void {
+    if (this.clock instanceof RealClock) this.clock.resync(nowMs);
   }
 
   schedule(atNs: Nanos, callback: () => void): TimerId {

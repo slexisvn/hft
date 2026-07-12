@@ -21,6 +21,7 @@ export function takerWalk(
   size: number,
   scratch: LevelView[],
   out: TakerSlice[],
+  reservedAt?: (priceTicks: Ticks) => number,
 ): number {
   const n = view.depth(oppositeSide(side), scratch.length, scratch);
   let remaining = size;
@@ -28,8 +29,9 @@ export function takerWalk(
   for (let i = 0; i < n && remaining > 0; i++) {
     const px = scratch[i].priceTicks;
     if (side === SIDE_BID ? px > limitTicks : px < limitTicks) break;
-    const qty = Math.min(remaining, scratch[i].size);
-    if (qty <= 0) continue;
+    const available = scratch[i].size - (reservedAt === undefined ? 0 : reservedAt(px));
+    if (available <= 0) continue;
+    const qty = Math.min(remaining, available);
     out[slices] = { priceTicks: px, qty };
     slices++;
     remaining -= qty;

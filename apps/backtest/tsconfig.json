@@ -8,9 +8,11 @@
   "references": [
     { "path": "../../packages/contracts" },
     { "path": "../../packages/events" },
+    { "path": "../../packages/numeric" },
     { "path": "../../packages/metrics" },
     { "path": "../../packages/sim" },
     { "path": "../../packages/strategy" },
+    { "path": "../../packages/live" },
     { "path": "../../packages/adapters/lobster" }
   ]
 }

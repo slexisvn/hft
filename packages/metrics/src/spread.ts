@@ -44,7 +44,10 @@ export function spreadSummary(
     eff += effectiveSpreadTicks(fill.priceTicks, fill.midTicksAtFill, a) * fill.size;
     effN += fill.size;
 
-    const reference = fill.midTicksAtFill + a * halfSpreadReferenceTicks;
+    const halfSpread = Number.isFinite(fill.spreadTicksAtFill)
+      ? fill.spreadTicksAtFill / 2
+      : halfSpreadReferenceTicks;
+    const reference = fill.midTicksAtFill + a * halfSpread;
     imp += priceImprovementTicks(fill.priceTicks, reference, a) * fill.size;
     impN += fill.size;
 

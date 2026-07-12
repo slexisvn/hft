@@ -7,6 +7,7 @@
   "dependencies": {
     "@hft/contracts": "*",
     "@hft/events": "*",
-    "@hft/book": "*"
+    "@hft/book": "*",
+    "@hft/numeric": "*"
   }
 }

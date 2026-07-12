@@ -11,7 +11,7 @@ import {
   type Strategy,
   type StrategyContext,
 } from '@hft/contracts';
-import { OfiAccumulator, depthImbalance } from '@hft/metrics';
+import { WindowedOfi, depthImbalance } from '@hft/metrics';
 import { TwoSidedQuoter, defaultIdFactory, type ClientOrderIdFactory } from './quoter';
 
 export function createLinearPredictor(model: LinearModelArtifact): Predictor {
@@ -56,11 +56,17 @@ export class LinearSignalStrategy implements Strategy {
   private readonly predictor: Predictor;
   private readonly featureNames: FeatureName[];
   private readonly features: Float64Array;
-  private readonly ofi = new OfiAccumulator();
+  private readonly ofi: WindowedOfi;
   private readonly quoter: TwoSidedQuoter;
 
-  constructor(params: LinearParams, model: LinearModelArtifact, idFactory: ClientOrderIdFactory = defaultIdFactory('lin')) {
+  constructor(
+    params: LinearParams,
+    model: LinearModelArtifact,
+    ofiWindowNs: number,
+    idFactory: ClientOrderIdFactory = defaultIdFactory('lin'),
+  ) {
     this.params = params;
+    this.ofi = new WindowedOfi(ofiWindowNs);
     this.featureNames = assertKnownFeatures(params.features);
     if (model.inputs.length !== this.featureNames.length) {
       throw new ConfigError(`model expects ${model.inputs.length} inputs but config lists ${this.featureNames.length}`);
@@ -83,13 +89,13 @@ export class LinearSignalStrategy implements Strategy {
     if (bid === NO_PRICE || ask === NO_PRICE) return;
     const bidSize = view.sizeAt(SIDE_BID, bid);
     const askSize = view.sizeAt(SIDE_ASK, ask);
-    const e = this.ofi.update(bid, bidSize, ask, askSize);
+    const ofi = this.ofi.update(ctx.clock.now(), bid, bidSize, ask, askSize);
     const mid = (bid + ask) / 2;
 
     for (let i = 0; i < this.featureNames.length; i++) {
       switch (this.featureNames[i]) {
         case 'ofi':
-          this.features[i] = e;
+          this.features[i] = ofi;
           break;
         case 'depth_imbalance':
           this.features[i] = depthImbalance(bidSize, askSize);

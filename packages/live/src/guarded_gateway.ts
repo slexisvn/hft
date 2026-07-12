@@ -5,7 +5,7 @@ import {
   type OrderRequest,
   type OrderSnapshot,
 } from '@hft/contracts';
-import { IdempotentSubmitter } from './client_order_id';
+import { IdempotentSubmitter, type IdJournal } from './client_order_id';
 import { KillSwitch } from './kill_switch';
 import { OrderRegistry } from './order_state';
 import { TokenBucket } from './rate_limit';
@@ -32,13 +32,27 @@ export class GuardedGateway implements Gateway {
     killSwitch: KillSwitch,
     registry: OrderRegistry,
     hooks: GuardedGatewayHooks,
+    journal: IdJournal | null = null,
   ) {
     this.inner = inner;
     this.bucket = bucket;
     this.killSwitch = killSwitch;
     this.registry = registry;
-    this.submitter = new IdempotentSubmitter(inner);
+    this.submitter = new IdempotentSubmitter(inner, journal);
     this.hooks = hooks;
+  }
+
+  restoreSentIds(clientOrderIds: Iterable<string>): void {
+    this.submitter.restore(clientOrderIds);
+  }
+
+  restoreOpenOrders(orders: readonly OrderSnapshot[]): void {
+    const ids: string[] = [];
+    for (const order of orders) {
+      this.registry.restore(order.clientOrderId, order.state);
+      ids.push(order.clientOrderId);
+    }
+    this.submitter.restore(ids);
   }
 
   get isHalted(): boolean {
@@ -73,6 +87,12 @@ export class GuardedGateway implements Gateway {
   cancel(clientOrderId: string): void {
     if (!this.registry.has(clientOrderId)) return;
     this.inner.cancel(clientOrderId);
+  }
+
+  amend(clientOrderId: string, newSize: number): void {
+    if (this.isHalted) return;
+    if (!this.registry.has(clientOrderId)) return;
+    this.inner.amend(clientOrderId, newSize);
   }
 
   openOrders(): readonly OrderSnapshot[] {

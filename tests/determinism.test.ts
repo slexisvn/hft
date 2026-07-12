@@ -2,7 +2,8 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { FILLS_SCHEMA, fillRow, toCsv, type AvellanedaParams } from '@hft/contracts';
-import { SimEngine } from '@hft/sim';
+import { SimEngine, lognormalLatency } from '@hft/sim';
+import { Rng } from '@hft/numeric';
 import { AvellanedaStoikovStrategy } from '@hft/strategy';
 import { buildEvents } from './helpers';
 
@@ -19,7 +20,9 @@ const PARAMS: AvellanedaParams = {
   maxPosition: 200,
 };
 
-function runOnce(): string {
+const SEED = 20260710;
+
+function runOnce(stochasticLatency = false): string {
   const engine = new SimEngine(
     {
       minPriceTicks: 900,
@@ -32,6 +35,7 @@ function runOnce(): string {
       makerFeeBps: -1,
       takerFeeBps: 5,
       inventorySampleIntervalNs: 1000000,
+      orderLatencyNs: stochasticLatency ? lognormalLatency(1_000_000, 0.6, new Rng(SEED)) : undefined,
     },
     new AvellanedaStoikovStrategy(PARAMS),
   );
@@ -43,6 +47,12 @@ describe('determinism', () => {
   it('the same config and the same data produce byte-identical fills', () => {
     const a = runOnce();
     const b = runOnce();
+    expect(b).toBe(a);
+  });
+
+  it('stays byte-identical under a seeded stochastic latency model', () => {
+    const a = runOnce(true);
+    const b = runOnce(true);
     expect(b).toBe(a);
   });
 

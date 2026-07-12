@@ -71,6 +71,7 @@ class InnerGateway implements Gateway {
     this.canceled.push(clientOrderId);
     this.open = this.open.filter((o) => o.clientOrderId !== clientOrderId);
   }
+  amend(): void {}
   openOrders(): readonly OrderSnapshot[] {
     return this.open;
   }
@@ -170,6 +171,18 @@ describe('GuardedGateway sits on the order path', () => {
     h.guarded.cancel('ghost');
     expect(h.inner.canceled).toEqual([]);
   });
+
+  it('reloads open orders from the exchange so it can cancel and dedupe them after a restart', () => {
+    const h = harness();
+    h.guarded.restoreOpenOrders([
+      { clientOrderId: 'prev-1', side: SIDE_BID, priceTicks: 100, size: 1, remaining: 1, state: 'acked' },
+    ]);
+    expect(h.guarded.orders.liveOrderIds()).toEqual(['prev-1']);
+    h.guarded.cancel('prev-1');
+    expect(h.inner.canceled).toEqual(['prev-1']);
+    h.guarded.submit(req('prev-1'));
+    expect(h.rejects).toEqual([{ id: 'prev-1', reason: 'duplicate_client_order_id' }]);
+  });
 });
 
 describe('LiveSession reconciles on a cycle', () => {
@@ -227,6 +240,29 @@ describe('LiveSession reconciles on a cycle', () => {
     s.start();
     h.clock.advanceTo(5_000_000_000);
     expect(results.length).toBe(1);
+  });
+
+  it('trips max_loss when mark-to-market PnL breaches the loss limit on a reconcile', () => {
+    const h = harness();
+    let pnl = 0;
+    const s = new LiveSession(
+      h.clock,
+      h.guarded,
+      { reconcileIntervalNs: 1_000_000_000, reconcileToleranceQty: 0, resyncOnSequenceGap: true },
+      {
+        fetchExchangeAccount: () => ({ position: 0, openOrders: h.inner.openOrders() }),
+        resyncOrderBookSnapshot: () => undefined,
+        onReconcile: () => undefined,
+        markToMarketPnlTicks: () => pnl,
+      },
+    );
+    h.guarded.submit(req('a'));
+    s.start();
+    pnl = -2000;
+    h.clock.advanceTo(1_000_000_000);
+    expect(h.halts).toEqual(['max_loss']);
+    expect(h.inner.canceled).toContain('a');
+    expect(s.isRunning).toBe(false);
   });
 });
 

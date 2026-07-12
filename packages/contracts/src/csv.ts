@@ -32,16 +32,61 @@ export interface ParsedCsv {
 }
 
 export function parseCsv(text: string): ParsedCsv {
-  const lines: string[] = [];
-  for (const raw of text.split('\n')) {
-    const line = raw.charCodeAt(raw.length - 1) === 13 ? raw.slice(0, -1) : raw;
-    if (line.length > 0) lines.push(line);
+  const records = parseCsvRecords(text);
+  if (records.length === 0) return { header: [], rows: [] };
+  return { header: records[0], rows: records.slice(1) };
+}
+
+function parseCsvRecords(text: string): string[][] {
+  const records: string[][] = [];
+  let field = '';
+  let record: string[] = [];
+  let inQuotes = false;
+  let sawAnyChar = false;
+
+  const endField = (): void => {
+    record.push(field);
+    field = '';
+  };
+  const endRecord = (): void => {
+    endField();
+    records.push(record);
+    record = [];
+    sawAnyChar = false;
+  };
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += ch;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inQuotes = true;
+      sawAnyChar = true;
+    } else if (ch === ',') {
+      endField();
+      sawAnyChar = true;
+    } else if (ch === '\n') {
+      if (sawAnyChar || field.length > 0 || record.length > 0) endRecord();
+    } else if (ch === '\r') {
+      // swallow; the following \n (or field/record end) closes the record
+    } else {
+      field += ch;
+      sawAnyChar = true;
+    }
   }
-  if (lines.length === 0) return { header: [], rows: [] };
-  const header = lines[0].split(',');
-  const rows: string[][] = [];
-  for (let i = 1; i < lines.length; i++) rows.push(lines[i].split(','));
-  return { header, rows };
+  if (sawAnyChar || field.length > 0 || record.length > 0) endRecord();
+  return records;
 }
 
 export function columnIndex(header: readonly string[], name: string): number {
@@ -60,4 +105,18 @@ export function toCsv(schema: TableSchema, rows: readonly (readonly (number | st
   }
   lines.push('');
   return lines.join('\n');
+}
+
+export type OutputFormat = 'csv';
+
+export type TableSerializer = (schema: TableSchema, rows: readonly (readonly (number | string)[])[]) => string;
+
+const TABLE_SERIALIZERS: Record<OutputFormat, TableSerializer> = {
+  csv: toCsv,
+};
+
+export function getTableSerializer(format: OutputFormat): TableSerializer {
+  const serializer = TABLE_SERIALIZERS[format];
+  if (serializer === undefined) throw new Error(`no table serializer registered for format "${format}"`);
+  return serializer;
 }

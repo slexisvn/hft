@@ -23,7 +23,18 @@ export interface OrderSnapshot {
 export interface Gateway {
   submit(request: OrderRequest): void;
   cancel(clientOrderId: string): void;
+  amend(clientOrderId: string, newSize: number): void;
   openOrders(): readonly OrderSnapshot[];
   position(): number;
   marketView(): BookView;
 }
+
+export interface OrderLifecycleSink {
+  onAck(clientOrderId: string): void;
+  onFill(clientOrderId: string, remaining: number): void;
+  onCanceled(clientOrderId: string): void;
+  onExchangeReject(clientOrderId: string): void;
+  onPnlTicks(pnlTicks: number): void;
+}
+
+export type RiskGateway = Gateway & OrderLifecycleSink;

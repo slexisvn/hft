@@ -4,4 +4,6 @@ export * from './invariants';
 export * from './queue_fill';
 export * from './resting_orders';
 export * from './marketable';
+export * from './liquidity_ledger';
+export * from './level_bitset';
 export * from './l2_book';

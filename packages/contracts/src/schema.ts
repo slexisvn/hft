@@ -1,7 +1,7 @@
 import type { Liquidity, Side, Ticks } from './enums';
 import type { Nanos } from './time';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 3;
 
 export type ColumnType = 'ns' | 'i32' | 'f64' | 'u8' | 'str';
 
@@ -25,6 +25,8 @@ export interface FillRecord {
   readonly queuePositionAtFill: number;
   readonly midTicksAtFill: number;
   readonly liquidity: Liquidity;
+  readonly depthAtFill: number;
+  readonly spreadTicksAtFill: number;
 }
 
 const FILL_COLUMNS: readonly ColumnSpec[] = Object.freeze([
@@ -36,6 +38,8 @@ const FILL_COLUMNS: readonly ColumnSpec[] = Object.freeze([
   { name: 'queue_position_at_fill', type: 'f64' },
   { name: 'mid_ticks_at_fill', type: 'f64' },
   { name: 'liquidity', type: 'u8' },
+  { name: 'depth_at_fill', type: 'f64' },
+  { name: 'spread_ticks_at_fill', type: 'f64' },
 ] as const);
 
 export const FILLS_SCHEMA: TableSchema = Object.freeze({
@@ -60,6 +64,8 @@ export function fillRow(f: FillRecord): readonly (number | string)[] {
     f.queuePositionAtFill,
     f.midTicksAtFill,
     f.liquidity,
+    f.depthAtFill,
+    f.spreadTicksAtFill,
   ];
 }
 
@@ -72,6 +78,7 @@ export interface FeatureRecord {
   readonly askSize: number;
   readonly depthImbalance: number;
   readonly ofi: number;
+  readonly multiLevelOfi: number;
   readonly tradeSign: number;
 }
 
@@ -87,6 +94,7 @@ export const FEATURES_SCHEMA: TableSchema = Object.freeze({
     { name: 'ask_size', type: 'i32' },
     { name: 'depth_imbalance', type: 'f64' },
     { name: 'ofi', type: 'f64' },
+    { name: 'multi_level_ofi', type: 'f64' },
     { name: 'trade_sign', type: 'f64' },
   ] as const),
 });
@@ -101,6 +109,7 @@ export function featureRow(f: FeatureRecord): readonly (number | string)[] {
     f.askSize,
     f.depthImbalance,
     f.ofi,
+    f.multiLevelOfi,
     f.tradeSign,
   ];
 }
@@ -117,6 +126,8 @@ export interface MetricsJson {
   readonly strategy: string;
   readonly markout: readonly MarkoutPoint[];
   readonly markoutVsFillPrice: readonly MarkoutPoint[];
+  readonly markoutBid: readonly MarkoutPoint[];
+  readonly markoutAsk: readonly MarkoutPoint[];
   readonly effectiveSpreadTicksMean: number;
   readonly realizedSpreadTicksMean: number;
   readonly priceImprovementTicksMean: number;
@@ -124,10 +135,17 @@ export interface MetricsJson {
   readonly fillCount: number;
   readonly submissionCount: number;
   readonly inventoryMean: number;
+  readonly inventoryTimeWeightedMean: number;
   readonly inventoryMin: number;
   readonly inventoryMax: number;
   readonly inventoryEnd: number;
   readonly pnlTicks: number;
+  readonly sharpePerStep: number;
+  readonly sortinoPerStep: number;
+  readonly maxDrawdownTicks: number;
+  readonly orderDepthRatioP95: number;
+  readonly orderDepthRatioMax: number;
+  readonly selfImpactWarning: boolean;
 }
 
 export function schemasEqual(a: TableSchema, b: TableSchema): boolean {

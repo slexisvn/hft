@@ -4,8 +4,10 @@ import { ConfigError, SCHEMA_VERSION, columnIndex, loadStrategyConfig, parseCsv,
 import {
   informationCoefficient,
   predict,
+  purgedKFold,
   rSquared,
   ridgeFit,
+  selectLambdaByCv,
   splitRows,
   standardize,
   toRawSpace,
@@ -36,6 +38,9 @@ function main(): void {
 
   const midIdx = columnIndex(csv.header, 'mid_ticks');
   const featureIdx = config.train.features.map((f) => columnIndex(csv.header, f));
+  const costAdjusted = config.train.target === 'cost_adjusted';
+  const spreadIdx = costAdjusted ? columnIndex(csv.header, 'spread_ticks') : -1;
+  const takerFeeRate = config.sim.takerFeeBps / 10000;
 
   const steps = Math.round(config.train.horizonNs / config.train.gridIntervalNs);
   if (steps < 1) throw new ConfigError('train.horizonNs must be at least one train.gridIntervalNs');
@@ -50,7 +55,10 @@ function main(): void {
   const y = new Float64Array(usable);
   for (let i = 0; i < usable; i++) {
     for (let c = 0; c < cols; c++) data[i * cols + c] = Number(csv.rows[i][featureIdx[c]]);
-    y[i] = Number(csv.rows[i + steps][midIdx]) - Number(csv.rows[i][midIdx]);
+    const midNow = Number(csv.rows[i][midIdx]);
+    let target = Number(csv.rows[i + steps][midIdx]) - midNow;
+    if (costAdjusted) target -= Number(csv.rows[i][spreadIdx]) / 2 + takerFeeRate * midNow;
+    y[i] = target;
   }
 
   const full: DesignMatrix = { rows: usable, cols, data };
@@ -60,7 +68,24 @@ function main(): void {
     ? standardize(split.trainX)
     : { design: split.trainX, standardization: identity(cols) };
 
-  const fit = ridgeFit(prepared.design, split.trainY, config.train.ridgeLambda, true);
+  let lambda = config.train.ridgeLambda;
+  let lambdaSource = 'config';
+  if (config.train.lambdaGrid !== undefined) {
+    const embargo = config.train.embargoRows ?? steps;
+    const folds = purgedKFold(split.trainX.rows, config.train.cvFolds ?? 5, embargo);
+    const selection = selectLambdaByCv(
+      split.trainX,
+      split.trainY,
+      config.train.lambdaGrid,
+      folds,
+      config.train.standardizeFeatures,
+    );
+    lambda = selection.best;
+    lambdaSource = `purged ${config.train.cvFolds ?? 5}-fold CV (embargo ${embargo})`;
+    for (const s of selection.scores) console.log(`cv lambda ${s.lambda} : mean R^2 ${s.meanR2.toFixed(6)}`);
+  }
+
+  const fit = ridgeFit(prepared.design, split.trainY, lambda, true);
   const raw = toRawSpace(fit.beta, fit.intercept, prepared.standardization);
 
   const inSample = score(split.trainX, split.trainY, raw.weights, raw.intercept);
@@ -70,7 +95,7 @@ function main(): void {
     schemaVersion: SCHEMA_VERSION,
     kind: 'linear',
     inputs: config.train.features,
-    outputs: ['mid_change_ticks'],
+    outputs: [costAdjusted ? 'cost_adjusted_pnl_ticks' : 'mid_change_ticks'],
     lambda: fit.lambda,
     intercept: [raw.intercept],
     weights: Array.from(raw.weights),
@@ -80,8 +105,9 @@ function main(): void {
   writeFileSync(config.train.modelPath, `${JSON.stringify(model, null, 2)}\n`, 'utf8');
 
   console.log(`rows                   : ${usable} (train ${split.trainX.rows}, test ${split.testX.rows})`);
+  console.log(`target                 : ${costAdjusted ? 'cost_adjusted' : 'mid_change'}`);
   console.log(`horizon (grid steps)   : ${steps}`);
-  console.log(`lambda                 : ${fit.lambda}`);
+  console.log(`lambda                 : ${fit.lambda} (${lambdaSource})`);
   console.log(`standardized           : ${config.train.standardizeFeatures}`);
   console.log(`condition estimate     : ${fit.conditionEstimate.toExponential(3)}`);
   for (let c = 0; c < cols; c++) console.log(`weight[${config.train.features[c]}] : ${raw.weights[c]}`);

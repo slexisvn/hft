@@ -51,6 +51,9 @@ class RecordingGateway implements Gateway {
     this.sink.push({ kind: 'cancel', clientOrderId });
     this.inner.cancel(clientOrderId);
   }
+  amend(clientOrderId: string, newSize: number): void {
+    this.inner.amend(clientOrderId, newSize);
+  }
   openOrders(): readonly OrderSnapshot[] {
     return this.inner.openOrders();
   }

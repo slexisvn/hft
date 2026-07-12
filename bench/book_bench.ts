@@ -10,12 +10,13 @@ import {
   type EventType,
   type Side,
 } from '@hft/contracts';
-import { L3Book } from '@hft/book';
+import { L2Book, L3Book } from '@hft/book';
 
 const EVENT_COUNT = Number(process.env.HFT_BENCH_EVENTS ?? '2000000');
 const MIN_TICKS = 90000;
 const MAX_TICKS = 110000;
 const REGRESSION_FLOOR_EVENTS_PER_SEC = Number(process.env.HFT_BENCH_FLOOR ?? '0');
+const REGRESSION_FLOOR_L2_PER_SEC = Number(process.env.HFT_BENCH_FLOOR_L2 ?? '0');
 
 function xorshift32(seed: number): () => number {
   let s = seed | 0;
@@ -132,4 +133,67 @@ function run(): void {
   if (book.bestBidTicks() === NO_PRICE) console.log('note: book ended with an empty bid side');
 }
 
+function runL2(): void {
+  const g = generate(EVENT_COUNT);
+  const book = new L2Book({ minPriceTicks: MIN_TICKS, maxPriceTicks: MAX_TICKS });
+  const running = new Int32Array((MAX_TICKS - MIN_TICKS + 1) * 2);
+
+  const applyOne = (i: number): void => {
+    const side = g.side[i] as Side;
+    const li = side * (MAX_TICKS - MIN_TICKS + 1) + (g.px[i] - MIN_TICKS);
+    const delta = g.type[i] === EV_NEW_LIMIT_ORDER ? g.sz[i] : -g.sz[i];
+    const next = running[li] + delta;
+    running[li] = next < 0 ? 0 : next;
+    book.setLevel(g.ts[i], side, g.px[i], running[li]);
+  };
+
+  for (let i = 0; i < 50000; i++) applyOne(i);
+  book.reset();
+  running.fill(0);
+
+  const start = performance.now();
+  for (let i = 0; i < EVENT_COUNT; i++) applyOne(i);
+  const elapsedMs = performance.now() - start;
+  const perSec = (EVENT_COUNT / elapsedMs) * 1000;
+
+  console.log('---');
+  console.log(`L2 setLevel ops        : ${EVENT_COUNT}`);
+  console.log(`L2 throughput (ops/s)  : ${perSec.toFixed(0)}`);
+  console.log(`L2 ns per op           : ${((elapsedMs * 1e6) / EVENT_COUNT).toFixed(1)}`);
+  console.log(`L2 best bid / ask      : ${book.bestBidTicks()} / ${book.bestAskTicks()}`);
+
+  if (REGRESSION_FLOOR_L2_PER_SEC > 0 && perSec < REGRESSION_FLOOR_L2_PER_SEC) {
+    console.error(`REGRESSION (L2): ${perSec.toFixed(0)} ops/s below floor ${REGRESSION_FLOOR_L2_PER_SEC}`);
+    process.exitCode = 1;
+  }
+}
+
+function runL2Repair(): void {
+  const wideMin = 0;
+  const wideMax = 2_000_000;
+  const book = new L2Book({ minPriceTicks: wideMin, maxPriceTicks: wideMax });
+  const asks = [1_000_000, 1_500_000, 1_999_999];
+  const bids = [999_999, 500_000, 1];
+  for (const p of asks) book.setLevel(0, SIDE_ASK, p, 100);
+  for (const p of bids) book.setLevel(0, SIDE_BID, p, 100);
+
+  const iters = 2_000_000;
+  const start = performance.now();
+  for (let i = 0; i < iters; i++) {
+    const best = book.bestAskTicks();
+    book.setLevel(i, SIDE_ASK, best, 0);
+    book.setLevel(i, SIDE_ASK, best, 100);
+  }
+  const elapsedMs = performance.now() - start;
+  const perSec = (iters / elapsedMs) * 1000;
+
+  console.log('---');
+  console.log(`L2 repairBest window   : [${wideMin}, ${wideMax}] (sparse, worst case for a linear scan)`);
+  console.log(`L2 repairBest ops      : ${iters}`);
+  console.log(`L2 repairBest ops/s    : ${perSec.toFixed(0)}`);
+  console.log(`L2 repairBest ns per op: ${((elapsedMs * 1e6) / iters).toFixed(1)}`);
+}
+
 run();
+runL2();
+runL2Repair();

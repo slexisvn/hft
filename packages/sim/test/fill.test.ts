@@ -145,6 +145,22 @@ describe('marketable orders', () => {
     expect(strategy.fills[0].priceTicks).toBe(1002);
     expect(strategy.fills[0].queuePositionAtFill).toBe(0);
   });
+
+  it('applies opt-in square-root impact only to taker fills, worsening the buy price', () => {
+    const strategy = new OneShot(SIDE_BID, 1002, 9, false);
+    new SimEngine({ ...OPTS, sqrtImpactCoeff: 6 }, strategy).run(base());
+    const depthAtAsk = 100;
+    const impact = Math.round(6 * Math.sqrt(9 / depthAtAsk));
+    expect(strategy.fills[0].liquidity).toBe(LIQ_TAKER);
+    expect(strategy.fills[0].priceTicks).toBe(1002 + impact);
+    expect(impact).toBeGreaterThan(0);
+  });
+
+  it('leaves fills unchanged when the impact model is off (default)', () => {
+    const strategy = new OneShot(SIDE_BID, 1002, 9, false);
+    new SimEngine(OPTS, strategy).run(base());
+    expect(strategy.fills[0].priceTicks).toBe(1002);
+  });
 });
 
 describe('SimClock', () => {

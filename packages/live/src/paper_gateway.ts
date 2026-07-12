@@ -2,7 +2,9 @@ import {
   EV_EXECUTE_VISIBLE,
   LIQ_MAKER,
   LIQ_TAKER,
-  SIDE_BID,
+  cashDeltaTicks,
+  oppositeSide,
+  positionDeltaQty,
   type BookView,
   type EventType,
   type FillRecord,
@@ -17,6 +19,7 @@ import {
 import {
   ExecutionMatcher,
   L3Book,
+  LiquidityLedger,
   RestingOrders,
   isMarketable,
   makeLevelViews,
@@ -51,6 +54,7 @@ export class PaperGateway implements Gateway {
   private readonly canceledBeforeArrival = new Set<string>();
   private readonly takerScratch;
   private readonly takerSlices: TakerSlice[] = [];
+  private readonly takerLedger = new LiquidityLedger();
   private readonly seen = new Set<string>();
 
   private pos = 0;
@@ -94,6 +98,13 @@ export class PaperGateway implements Gateway {
         return;
       }
       this.resting.remove(this.book, clientOrderId, 'canceled');
+    });
+  }
+
+  amend(clientOrderId: string, newSize: number): void {
+    const arriveAt = this.clock.now() + this.opts.decisionLatencyNs + this.opts.orderEntryLatencyNs;
+    this.clock.schedule(arriveAt, () => {
+      this.resting.amendSize(this.book, clientOrderId, newSize);
     });
   }
 
@@ -143,7 +154,15 @@ export class PaperGateway implements Gateway {
     this.book.apply(timestampNs, type, orderId, side, priceTicks, size);
     if (isExecute) {
       this.matcher.resolve(this.book, this.resting, size, (order, qty, queuePosition) => {
-        this.recordFill(order.clientOrderId, order.side, order.priceTicks, qty, queuePosition, LIQ_MAKER);
+        this.recordFill(
+          order.clientOrderId,
+          order.side,
+          order.priceTicks,
+          qty,
+          queuePosition,
+          LIQ_MAKER,
+          this.book.sizeAt(order.side, order.priceTicks),
+        );
       });
     }
   }
@@ -157,6 +176,8 @@ export class PaperGateway implements Gateway {
         this.hooks.onOrderRejected(request.clientOrderId, 'post_only_would_cross');
         return;
       }
+      this.takerLedger.resetAt(this.clock.now());
+      const eaten = oppositeSide(request.side);
       const slices = takerWalk(
         this.book,
         request.side,
@@ -164,11 +185,14 @@ export class PaperGateway implements Gateway {
         request.size,
         this.takerScratch,
         this.takerSlices,
+        (px) => this.takerLedger.reservedAt(eaten, px),
       );
       let filled = 0;
       for (let i = 0; i < slices; i++) {
         const s = this.takerSlices[i];
-        this.recordFill(request.clientOrderId, request.side, s.priceTicks, s.qty, 0, LIQ_TAKER);
+        this.takerLedger.consume(eaten, s.priceTicks, s.qty);
+        const depth = this.book.sizeAt(eaten, s.priceTicks);
+        this.recordFill(request.clientOrderId, request.side, s.priceTicks, s.qty, 0, LIQ_TAKER, depth);
         filled += s.qty;
       }
       const rest = request.size - filled;
@@ -185,12 +209,12 @@ export class PaperGateway implements Gateway {
     qty: number,
     queuePosition: number,
     liquidity: Liquidity,
+    depthAtFill: number,
   ): void {
     const mid = this.book.midTicks();
     const feeBps = liquidity === LIQ_MAKER ? this.opts.makerFeeBps : this.opts.takerFeeBps;
-    const notional = priceTicks * qty;
-    this.cash += (side === SIDE_BID ? -notional : notional) - (notional * feeBps) / 10000;
-    this.pos += side === SIDE_BID ? qty : -qty;
+    this.cash += cashDeltaTicks(side, priceTicks, qty, feeBps);
+    this.pos += positionDeltaQty(side, qty);
     this.hooks.onFill({
       timestampNs: this.clock.now(),
       clientOrderId,
@@ -200,6 +224,8 @@ export class PaperGateway implements Gateway {
       queuePositionAtFill: queuePosition,
       midTicksAtFill: mid,
       liquidity,
+      depthAtFill,
+      spreadTicksAtFill: this.book.spreadTicks(),
     });
   }
 }

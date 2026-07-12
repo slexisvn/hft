@@ -1,12 +1,16 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 3,
   "name": "linear_baseline",
   "input": {
     "messagePath": "packages/adapters/lobster/test/fixtures/synth_message.csv"
   },
   "sweep": {
-    "gammaGrid": [0.05],
-    "kappaGrid": [3.0]
+    "gammaGrid": [
+      0.05
+    ],
+    "kappaGrid": [
+      3
+    ]
   },
   "instrument": {
     "symbol": "SYNTH",
@@ -31,7 +35,11 @@
     "snapshotDepth": 10
   },
   "metrics": {
-    "markoutHorizonsNs": [100000000, 1000000000, 10000000000],
+    "markoutHorizonsNs": [
+      100000000,
+      1000000000,
+      10000000000
+    ],
     "realizedSpreadHorizonNs": 1000000000,
     "ofiWindowNs": 100000000,
     "inventorySampleIntervalNs": 100000000
@@ -39,7 +47,10 @@
   "strategy": {
     "kind": "linear",
     "modelPath": "out/model.json",
-    "features": ["ofi", "depth_imbalance"],
+    "features": [
+      "ofi",
+      "depth_imbalance"
+    ],
     "entryThreshold": 0.05,
     "orderSize": 10,
     "skewTicksPerUnit": 0.5,
@@ -64,12 +75,15 @@
     "resyncOnSequenceGap": true
   },
   "train": {
-    "ridgeLambda": 1.0,
+    "ridgeLambda": 1,
     "horizonNs": 1000000000,
     "gridIntervalNs": 100000000,
     "trainFraction": 0.7,
     "standardizeFeatures": true,
-    "features": ["ofi", "depth_imbalance"],
+    "features": [
+      "ofi",
+      "depth_imbalance"
+    ],
     "modelPath": "out/model.json"
   },
   "output": {

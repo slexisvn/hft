@@ -54,6 +54,7 @@ class FakeGateway implements Gateway {
     this.canceled.push(clientOrderId);
     this.open = this.open.filter((o) => o.clientOrderId !== clientOrderId);
   }
+  amend(): void {}
   openOrders(): readonly OrderSnapshot[] {
     return this.open;
   }
@@ -136,6 +137,21 @@ describe('client order ids', () => {
     expect(() => gen.restore(1)).toThrowError(/cannot rewind/);
     gen.restore(5);
     expect(gen.next(SIDE_BID)).toBe('mm.7.0.5');
+  });
+
+  it('journals each sent id and dedupes it after a restart restores the journal', () => {
+    const journalled: string[] = [];
+    const first = new IdempotentSubmitter(new FakeGateway(), { append: (id) => journalled.push(id) });
+    expect(first.submit(req('mm.7.0.0'))).toBe(true);
+    expect(first.submit(req('mm.7.0.1'))).toBe(true);
+    expect(journalled).toEqual(['mm.7.0.0', 'mm.7.0.1']);
+
+    const afterRestart = new FakeGateway();
+    const resumed = new IdempotentSubmitter(afterRestart);
+    resumed.restore(journalled);
+    expect(resumed.submit(req('mm.7.0.0'))).toBe(false);
+    expect(resumed.submit(req('mm.7.0.2'))).toBe(true);
+    expect(afterRestart.submitted.map((o) => o.clientOrderId)).toEqual(['mm.7.0.2']);
   });
 });
 
@@ -284,9 +300,11 @@ describe('kill switch', () => {
 
 describe('real clock', () => {
   it('reports nanoseconds since UTC midnight and advances monotonically', () => {
-    const clock = new RealClock(Date.UTC(2026, 6, 10, 1, 0, 0, 0), 0);
+    let p = 0;
+    const clock = new RealClock(Date.UTC(2026, 6, 10, 1, 0, 0, 0), () => p);
     const t = clock.now();
     expect(t).toBeGreaterThanOrEqual(3600 * 1_000_000_000);
+    p += 5;
     expect(clock.now()).toBeGreaterThanOrEqual(t);
   });
 });

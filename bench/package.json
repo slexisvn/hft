@@ -5,6 +5,9 @@
   "main": "dist/book_bench.js",
   "dependencies": {
     "@hft/contracts": "*",
-    "@hft/book": "*"
+    "@hft/book": "*",
+    "@hft/events": "*",
+    "@hft/sim": "*",
+    "@hft/strategy": "*"
   }
 }

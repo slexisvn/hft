@@ -21,6 +21,34 @@ declare module 'node:perf_hooks' {
   export const performance: { now(): number };
 }
 
+declare class Buffer {
+  toString(encoding: 'utf8'): string;
+}
+
+declare module 'node:crypto' {
+  export function createHmac(
+    algorithm: string,
+    key: string,
+  ): { update(data: string): { digest(encoding: 'hex'): string } };
+}
+
+declare module 'node:https' {
+  interface IncomingLike {
+    statusCode?: number;
+    on(event: 'data', callback: (chunk: Buffer) => void): void;
+    on(event: 'end', callback: () => void): void;
+  }
+  interface ClientRequestLike {
+    on(event: 'error', callback: (err: Error) => void): void;
+    end(): void;
+  }
+  export function request(
+    url: string,
+    options: { method: string; headers: Record<string, string> },
+    callback: (res: IncomingLike) => void,
+  ): ClientRequestLike;
+}
+
 declare module 'node:url' {
   export function fileURLToPath(url: string | URL): string;
 }

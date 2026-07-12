@@ -119,6 +119,14 @@ export class BinanceGateway implements Gateway {
     this.transport.cancelOrder(clientOrderId);
   }
 
+  amend(clientOrderId: string, newSize: number): void {
+    const order = this.working.get(clientOrderId);
+    if (order === undefined) return;
+    const filled = order.request.size - order.remaining;
+    if (newSize >= order.request.size || newSize <= filled) return;
+    order.remaining = newSize - filled;
+  }
+
   openOrders(): readonly OrderSnapshot[] {
     const out: OrderSnapshot[] = [];
     for (const o of this.working.values()) {
@@ -205,6 +213,8 @@ export class BinanceGateway implements Gateway {
           queuePositionAtFill: queuePosition,
           midTicksAtFill: this.book.midTicks(),
           liquidity: report.isMaker ? LIQ_MAKER : LIQ_TAKER,
+          depthAtFill: this.book.sizeAt(order.request.side, report.lastFilledPriceTicks),
+          spreadTicksAtFill: this.book.spreadTicks(),
         });
         if (report.status === 'FILLED') this.retire(report.clientOrderId);
         return;

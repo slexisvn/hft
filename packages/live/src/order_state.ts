@@ -19,10 +19,11 @@ export function isTerminal(state: OrderState): boolean {
 
 export class OrderStateMachine {
   readonly clientOrderId: string;
-  private current: OrderState = 'pending';
+  private current: OrderState;
 
-  constructor(clientOrderId: string) {
+  constructor(clientOrderId: string, initial: OrderState = 'pending') {
     this.clientOrderId = clientOrderId;
+    this.current = initial;
   }
 
   get state(): OrderState {
@@ -45,6 +46,12 @@ export class OrderRegistry {
       throw new OrderStateError(`order "${clientOrderId}" already registered`);
     }
     const fsm = new OrderStateMachine(clientOrderId);
+    this.orders.set(clientOrderId, fsm);
+    return fsm;
+  }
+
+  restore(clientOrderId: string, state: OrderState): OrderStateMachine {
+    const fsm = new OrderStateMachine(clientOrderId, state);
     this.orders.set(clientOrderId, fsm);
     return fsm;
   }

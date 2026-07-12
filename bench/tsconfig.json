@@ -5,5 +5,11 @@
     "outDir": "dist"
   },
   "include": ["*.ts"],
-  "references": [{ "path": "../packages/contracts" }, { "path": "../packages/book" }]
+  "references": [
+    { "path": "../packages/contracts" },
+    { "path": "../packages/book" },
+    { "path": "../packages/events" },
+    { "path": "../packages/sim" },
+    { "path": "../packages/strategy" }
+  ]
 }

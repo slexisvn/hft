@@ -30,7 +30,13 @@ export class TwoSidedQuoter {
 
   desire(gateway: Gateway, side: Side, priceTicks: Ticks, size: number): void {
     const current = this.quotes[side];
-    if (current !== null && Math.abs(current.priceTicks - priceTicks) < this.requoteThresholdTicks) return;
+    if (current !== null && Math.abs(current.priceTicks - priceTicks) < this.requoteThresholdTicks) {
+      if (size < current.remaining) {
+        gateway.amend(current.clientOrderId, size);
+        current.remaining = size;
+      }
+      return;
+    }
     if (current !== null) {
       gateway.cancel(current.clientOrderId);
       this.quotes[side] = null;

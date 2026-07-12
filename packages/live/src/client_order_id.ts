@@ -34,16 +34,26 @@ export class ClientOrderIdGenerator {
   }
 }
 
+export interface IdJournal {
+  append(clientOrderId: string): void;
+}
+
 export class IdempotentSubmitter {
   private readonly gateway: Gateway;
+  private readonly journal: IdJournal | null;
   private readonly sent = new Set<string>();
 
-  constructor(gateway: Gateway) {
+  constructor(gateway: Gateway, journal: IdJournal | null = null) {
     this.gateway = gateway;
+    this.journal = journal;
   }
 
   get sentCount(): number {
     return this.sent.size;
+  }
+
+  restore(clientOrderIds: Iterable<string>): void {
+    for (const id of clientOrderIds) this.sent.add(id);
   }
 
   wasSent(clientOrderId: string): boolean {
@@ -53,6 +63,7 @@ export class IdempotentSubmitter {
   submit(request: OrderRequest): boolean {
     if (this.sent.has(request.clientOrderId)) return false;
     this.sent.add(request.clientOrderId);
+    this.journal?.append(request.clientOrderId);
     this.gateway.submit(request);
     return true;
   }

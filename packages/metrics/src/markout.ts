@@ -30,10 +30,19 @@ export class MidLookup {
   }
 }
 
-export function markout(
+type FillReference = (fill: FillRecord) => number;
+type FillFilter = (fill: FillRecord) => boolean;
+
+const midReference: FillReference = (fill) => fill.midTicksAtFill;
+const priceReference: FillReference = (fill) => fill.priceTicks;
+const allFills: FillFilter = () => true;
+
+function markoutCore(
   fills: readonly FillRecord[],
   series: MidSeries,
   horizonsNs: readonly Nanos[],
+  reference: FillReference,
+  include: FillFilter,
 ): MarkoutPoint[] {
   const out: MarkoutPoint[] = [];
   for (const horizon of horizonsNs) {
@@ -42,11 +51,13 @@ export function markout(
     let sumBps = 0;
     let count = 0;
     for (const fill of fills) {
+      if (!include(fill)) continue;
       const future = lookup.atOrBefore(fill.timestampNs + horizon);
-      if (!Number.isFinite(future) || !Number.isFinite(fill.midTicksAtFill)) continue;
-      const delta = sideSign(fill.side) * (future - fill.midTicksAtFill);
+      const ref = reference(fill);
+      if (!Number.isFinite(future) || !Number.isFinite(ref)) continue;
+      const delta = sideSign(fill.side) * (future - ref);
       sumTicks += delta * fill.size;
-      sumBps += (delta / fill.midTicksAtFill) * 10000 * fill.size;
+      sumBps += (delta / ref) * 10000 * fill.size;
       count += fill.size;
     }
     out.push({
@@ -59,33 +70,32 @@ export function markout(
   return out;
 }
 
+export function markout(fills: readonly FillRecord[], series: MidSeries, horizonsNs: readonly Nanos[]): MarkoutPoint[] {
+  return markoutCore(fills, series, horizonsNs, midReference, allFills);
+}
+
 export function markoutVsFillPrice(
   fills: readonly FillRecord[],
   series: MidSeries,
   horizonsNs: readonly Nanos[],
 ): MarkoutPoint[] {
-  const out: MarkoutPoint[] = [];
-  for (const horizon of horizonsNs) {
-    const lookup = new MidLookup(series);
-    let sumTicks = 0;
-    let sumBps = 0;
-    let count = 0;
-    for (const fill of fills) {
-      const future = lookup.atOrBefore(fill.timestampNs + horizon);
-      if (!Number.isFinite(future)) continue;
-      const delta = sideSign(fill.side) * (future - fill.priceTicks);
-      sumTicks += delta * fill.size;
-      sumBps += (delta / fill.priceTicks) * 10000 * fill.size;
-      count += fill.size;
-    }
-    out.push({
-      horizonNs: horizon,
-      meanTicks: count === 0 ? 0 : sumTicks / count,
-      meanBps: count === 0 ? 0 : sumBps / count,
-      count,
-    });
-  }
-  return out;
+  return markoutCore(fills, series, horizonsNs, priceReference, allFills);
+}
+
+export interface MarkoutBySide {
+  readonly bid: MarkoutPoint[];
+  readonly ask: MarkoutPoint[];
+}
+
+export function markoutBySide(
+  fills: readonly FillRecord[],
+  series: MidSeries,
+  horizonsNs: readonly Nanos[],
+): MarkoutBySide {
+  return {
+    bid: markoutCore(fills, series, horizonsNs, midReference, (f) => f.side === SIDE_BID),
+    ask: markoutCore(fills, series, horizonsNs, midReference, (f) => f.side !== SIDE_BID),
+  };
 }
 
 export function midSeriesFromQuotes(timestampNs: Float64Array, bidTicks: Int32Array, askTicks: Int32Array): MidSeries {

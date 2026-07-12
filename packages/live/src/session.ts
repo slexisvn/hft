@@ -13,6 +13,7 @@ export interface LiveSessionHooks {
   fetchExchangeAccount(): AccountSnapshot;
   resyncOrderBookSnapshot(): void;
   onReconcile(result: ReconcileResult): void;
+  markToMarketPnlTicks?(): number;
 }
 
 export class LiveSession {
@@ -67,6 +68,9 @@ export class LiveSession {
 
   reconcileNow(): ReconcileResult {
     this.reconciles++;
+    if (this.hooks.markToMarketPnlTicks !== undefined) {
+      this.gateway.onPnlTicks(this.hooks.markToMarketPnlTicks());
+    }
     const local: AccountSnapshot = {
       position: this.gateway.position(),
       openOrders: this.gateway.openOrders(),
