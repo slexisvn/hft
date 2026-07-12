@@ -6,3 +6,4 @@ export * from './risk';
 export * from './impact';
 export * from './compare';
 export * from './features';
+export * from './feature_registry';

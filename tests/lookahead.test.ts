@@ -13,6 +13,7 @@ class Recorder implements Strategy {
   onMarketData(ctx: StrategyContext, view: BookView): void {
     this.observations.push({ clockNs: ctx.clock.now(), viewTs: view.timestampNs, bestBid: view.bestBidTicks() });
   }
+  onTrade(): void {}
   onFill(): void {}
   onOrderRejected(): void {}
   onStop(): void {}
@@ -53,6 +54,7 @@ describe('look-ahead bias is structurally impossible', () => {
         const bid = view.bestBidTicks();
         seen.push(bid === -1 ? -1 : view.sizeAt(SIDE_BID, bid));
       }
+      onTrade(): void {}
       onFill(): void {}
       onOrderRejected(): void {}
       onStop(): void {}

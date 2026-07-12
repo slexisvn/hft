@@ -5,6 +5,7 @@ import type { ClientOrderIdFactory } from './quoter';
 
 export interface CreateStrategyOptions {
   readonly ofiWindowNs?: number;
+  readonly snapshotDepth?: number;
   readonly idFactory?: ClientOrderIdFactory;
 }
 
@@ -13,7 +14,7 @@ export function createStrategy(
   model: LinearModelArtifact | null,
   options: CreateStrategyOptions = {},
 ): Strategy {
-  const { ofiWindowNs, idFactory } = options;
+  const { ofiWindowNs, snapshotDepth, idFactory } = options;
   if (params.kind === 'avellaneda_stoikov') {
     return idFactory === undefined
       ? new AvellanedaStoikovStrategy(params)
@@ -23,7 +24,8 @@ export function createStrategy(
   if (ofiWindowNs === undefined) {
     throw new ConfigError('linear strategy requires metrics.ofiWindowNs to compute the ofi feature');
   }
+  const depth = snapshotDepth ?? 0;
   return idFactory === undefined
-    ? new LinearSignalStrategy(params, model, ofiWindowNs)
-    : new LinearSignalStrategy(params, model, ofiWindowNs, idFactory);
+    ? new LinearSignalStrategy(params, model, ofiWindowNs, depth)
+    : new LinearSignalStrategy(params, model, ofiWindowNs, depth, idFactory);
 }

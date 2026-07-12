@@ -53,6 +53,7 @@ class OneShot implements Strategy {
       postOnly: this.postOnly,
     });
   }
+  onTrade(): void {}
   onFill(_ctx: StrategyContext, fill: FillRecord): void {
     this.fills.push(fill);
   }

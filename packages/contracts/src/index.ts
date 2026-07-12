@@ -8,6 +8,7 @@ export * from './gateway';
 export * from './strategy';
 export * from './predictor';
 export * from './schema';
+export * from './features';
 export * from './csv';
 export * from './validate';
 export * from './config';

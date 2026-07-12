@@ -84,6 +84,9 @@ class RecordingStrategy implements Strategy {
   onMarketData(ctx: StrategyContext, view: BookView): void {
     this.inner.onMarketData(this.wrap(ctx), view);
   }
+  onTrade(ctx: StrategyContext, sign: number, priceTicks: number, size: number): void {
+    this.inner.onTrade(this.wrap(ctx), sign, priceTicks, size);
+  }
   onFill(ctx: StrategyContext, fill: FillRecord): void {
     this.inner.onFill(this.wrap(ctx), fill);
   }

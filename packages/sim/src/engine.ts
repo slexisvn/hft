@@ -435,8 +435,15 @@ export class SimEngine implements GatewayBackend {
         continue;
       }
       this.clock.advanceTo(tLag);
-      this.laggedBook.apply(ts[j], et[j] as EventType, oid[j], sd[j] as Side, px[j], sz[j]);
+      const laggedType = et[j] as EventType;
+      const laggedSide = sd[j] as Side;
+      const laggedPrice = px[j];
+      const laggedSize = sz[j];
+      this.laggedBook.apply(ts[j], laggedType, oid[j], laggedSide, laggedPrice, laggedSize);
       j++;
+      if (laggedType === EV_EXECUTE_VISIBLE || laggedType === EV_EXECUTE_HIDDEN) {
+        this.strategy.onTrade(this.ctx, laggedSide === SIDE_BID ? -1 : 1, laggedPrice, laggedSize);
+      }
       this.strategy.onMarketData(this.ctx, this.laggedBook);
       this.flushRejects();
     }

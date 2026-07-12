@@ -56,7 +56,10 @@ export function runBacktest(config: StrategyConfig, model: LinearModelArtifact |
   });
   const events = source.load();
 
-  const strategy = createStrategy(config.strategy, model, { ofiWindowNs: config.metrics.ofiWindowNs });
+  const strategy = createStrategy(config.strategy, model, {
+    ofiWindowNs: config.metrics.ofiWindowNs,
+    snapshotDepth: config.book.snapshotDepth,
+  });
   let haltReason: string | null = null;
   const engine = new SimEngine(
     {

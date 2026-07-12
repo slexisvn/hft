@@ -75,6 +75,8 @@ export class AvellanedaStoikovStrategy implements Strategy {
     this.quoter.desireWithinPosition(ctx.gateway, SIDE_ASK, ask, p.orderSize, inventory, p.maxPosition);
   }
 
+  onTrade(): void {}
+
   onFill(_ctx: StrategyContext, fill: FillRecord): void {
     this.quoter.onFill(fill.clientOrderId, fill.size);
   }

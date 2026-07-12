@@ -69,51 +69,6 @@ export function fillRow(f: FillRecord): readonly (number | string)[] {
   ];
 }
 
-export interface FeatureRecord {
-  readonly timestampNs: Nanos;
-  readonly midTicks: number;
-  readonly microPriceTicks: number;
-  readonly spreadTicks: number;
-  readonly bidSize: number;
-  readonly askSize: number;
-  readonly depthImbalance: number;
-  readonly ofi: number;
-  readonly multiLevelOfi: number;
-  readonly tradeSign: number;
-}
-
-export const FEATURES_SCHEMA: TableSchema = Object.freeze({
-  name: 'features',
-  version: SCHEMA_VERSION,
-  columns: Object.freeze([
-    { name: 'timestamp_ns', type: 'ns' },
-    { name: 'mid_ticks', type: 'f64' },
-    { name: 'micro_price_ticks', type: 'f64' },
-    { name: 'spread_ticks', type: 'f64' },
-    { name: 'bid_size', type: 'i32' },
-    { name: 'ask_size', type: 'i32' },
-    { name: 'depth_imbalance', type: 'f64' },
-    { name: 'ofi', type: 'f64' },
-    { name: 'multi_level_ofi', type: 'f64' },
-    { name: 'trade_sign', type: 'f64' },
-  ] as const),
-});
-
-export function featureRow(f: FeatureRecord): readonly (number | string)[] {
-  return [
-    f.timestampNs,
-    f.midTicks,
-    f.microPriceTicks,
-    f.spreadTicks,
-    f.bidSize,
-    f.askSize,
-    f.depthImbalance,
-    f.ofi,
-    f.multiLevelOfi,
-    f.tradeSign,
-  ];
-}
-
 export interface MarkoutPoint {
   readonly horizonNs: Nanos;
   readonly meanTicks: number;

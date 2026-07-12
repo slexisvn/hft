@@ -70,7 +70,10 @@ function main(): void {
   const config = loadStrategyConfig(readFileSync(configPath, 'utf8'));
 
   const clock = new RealSchedulingClock();
-  const strategy = createStrategy(config.strategy, loadModel(config), { ofiWindowNs: config.metrics.ofiWindowNs });
+  const strategy = createStrategy(config.strategy, loadModel(config), {
+    ofiWindowNs: config.metrics.ofiWindowNs,
+    snapshotDepth: config.book.snapshotDepth,
+  });
   const ids = new ClientOrderIdGenerator(config.name, Math.floor(clock.now() / 1_000_000));
   const endpoints = binanceEndpoints(config.live, config.instrument.symbol, '<listen-key>');
   const scale = createTickScale(config.instrument.tickSize, config.instrument.priceScale);
