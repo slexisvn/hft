@@ -93,6 +93,12 @@ export interface LiveConfig {
 
 export type TrainTarget = 'mid_change' | 'cost_adjusted';
 
+export interface PromotionGateConfig {
+  readonly minOutOfSampleIc: number;
+  readonly minIcTStat: number;
+  readonly requirePositiveR2?: boolean;
+}
+
 export interface TrainConfig {
   readonly ridgeLambda: number;
   readonly horizonNs: number;
@@ -105,6 +111,7 @@ export interface TrainConfig {
   readonly lambdaGrid?: readonly number[];
   readonly cvFolds?: number;
   readonly embargoRows?: number;
+  readonly gate?: PromotionGateConfig;
 }
 
 export interface OutputConfig {
@@ -288,8 +295,17 @@ export const STRATEGY_CONFIG_SPEC: Spec = {
         lambdaGrid: { kind: 'array', item: nonNegNum, minLength: 1 },
         cvFolds: { kind: 'number', int: true, min: 2 },
         embargoRows: nonNegInt,
+        gate: {
+          kind: 'object',
+          fields: {
+            minOutOfSampleIc: anyNum,
+            minIcTStat: nonNegNum,
+            requirePositiveR2: { kind: 'boolean' },
+          },
+          optional: ['requirePositiveR2'],
+        },
       },
-      optional: ['target', 'lambdaGrid', 'cvFolds', 'embargoRows'],
+      optional: ['target', 'lambdaGrid', 'cvFolds', 'embargoRows', 'gate'],
     },
     output: {
       kind: 'object',
@@ -338,6 +354,31 @@ export function loadStrategyConfig(text: string): StrategyConfig {
   return parseStrategyConfig(raw);
 }
 
+const PROVENANCE_SPEC: Spec = {
+  kind: 'object',
+  fields: {
+    generatedAt: str,
+    datasetHash: str,
+    configHash: str,
+    rows: nonNegInt,
+    trainRows: nonNegInt,
+    testRows: nonNegInt,
+    horizonSteps: posInt,
+    target: str,
+    standardized: { kind: 'boolean' },
+    lambda: nonNegNum,
+    lambdaSource: str,
+    conditionEstimate: nonNegNum,
+    inSampleIc: anyNum,
+    outOfSampleIc: anyNum,
+    inSampleR2: anyNum,
+    outOfSampleR2: anyNum,
+    icTStat: anyNum,
+    deflatedIcTStat: anyNum,
+    selectionTrials: posInt,
+  },
+};
+
 export const LINEAR_MODEL_SPEC: Spec = {
   kind: 'object',
   fields: {
@@ -348,5 +389,7 @@ export const LINEAR_MODEL_SPEC: Spec = {
     lambda: nonNegNum,
     intercept: { kind: 'array', item: anyNum, minLength: 1 },
     weights: { kind: 'array', item: anyNum, minLength: 1 },
+    provenance: PROVENANCE_SPEC,
   },
+  optional: ['provenance'],
 };

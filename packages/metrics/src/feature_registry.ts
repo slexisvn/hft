@@ -1,4 +1,4 @@
-import { NO_PRICE, type FeatureName } from '@hft/contracts';
+import { NO_PRICE, microPriceTicksOf, type FeatureName } from '@hft/contracts';
 import { MultiLevelOfi, WindowedOfi, depthImbalance } from './ofi';
 
 const ZERO_EXTRACTOR: FeatureExtractor = {
@@ -35,68 +35,47 @@ export interface FeatureParams {
   depthLevels: number;
 }
 
-class BookStateExtractor implements FeatureExtractor {
-  protected bid = 0;
-  protected bidSize = 0;
-  protected ask = 0;
-  protected askSize = 0;
-  protected started = false;
+interface BookState {
+  bid: number;
+  bidSize: number;
+  ask: number;
+  askSize: number;
+}
 
-  update(m: MarketSnapshot): void {
-    this.bid = m.bidTicks;
-    this.bidSize = m.bidSize;
-    this.ask = m.askTicks;
-    this.askSize = m.askSize;
-    this.started = true;
-  }
-
-  onTrade(): void {}
-
-  value(): number {
-    return 0;
-  }
+function bookExtractor(read: (s: BookState) => number): FeatureExtractor {
+  const s: BookState = { bid: 0, bidSize: 0, ask: 0, askSize: 0 };
+  return {
+    update(m: MarketSnapshot): void {
+      s.bid = m.bidTicks;
+      s.bidSize = m.bidSize;
+      s.ask = m.askTicks;
+      s.askSize = m.askSize;
+    },
+    onTrade(): void {},
+    value(): number {
+      return read(s);
+    },
+  };
 }
 
 function microPriceExtractor(): FeatureExtractor {
-  return new (class extends BookStateExtractor {
-    override value(): number {
-      const total = this.bidSize + this.askSize;
-      const mid = (this.bid + this.ask) / 2;
-      return total === 0 ? mid : (this.bid * this.askSize + this.ask * this.bidSize) / total;
-    }
-  })();
+  return bookExtractor((s) => microPriceTicksOf(s.bid, s.ask, s.bidSize, s.askSize));
 }
 
 function spreadExtractor(): FeatureExtractor {
-  return new (class extends BookStateExtractor {
-    override value(): number {
-      return this.ask - this.bid;
-    }
-  })();
+  return bookExtractor((s) => s.ask - s.bid);
 }
 
 function bidSizeExtractor(): FeatureExtractor {
-  return new (class extends BookStateExtractor {
-    override value(): number {
-      return this.bidSize;
-    }
-  })();
+  return bookExtractor((s) => s.bidSize);
 }
 
 function askSizeExtractor(): FeatureExtractor {
-  return new (class extends BookStateExtractor {
-    override value(): number {
-      return this.askSize;
-    }
-  })();
+  return bookExtractor((s) => s.askSize);
 }
 
 function depthImbalanceExtractor(): FeatureExtractor {
-  return new (class extends BookStateExtractor {
-    override value(): number {
-      return depthImbalance(this.bidSize, this.askSize);
-    }
-  })();
+  return bookExtractor((s) => depthImbalance(s.bidSize, s.askSize));
 }
 
 function ofiExtractor(p: FeatureParams): FeatureExtractor {

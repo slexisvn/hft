@@ -7,6 +7,9 @@ import {
   NO_PRICE,
   SIDE_ASK,
   SIDE_BID,
+  microPriceTicksOf,
+  midTicksOf,
+  spreadTicksOf,
   type CursorId,
   type EventType,
   type LevelView,
@@ -15,6 +18,7 @@ import {
   type Side,
   type Ticks,
 } from '@hft/contracts';
+import { scanDepth } from './depth_scan';
 
 export interface BookOptions {
   readonly minPriceTicks: number;
@@ -266,22 +270,21 @@ export class L3Book implements OrderBook {
   }
 
   midTicks(): number {
-    if (this.bestBid === NO_PRICE || this.bestAsk === NO_PRICE) return NaN;
-    return (this.bestBid + this.bestAsk) / 2;
+    return midTicksOf(this.bestBid, this.bestAsk);
   }
 
   spreadTicks(): number {
-    if (this.bestBid === NO_PRICE || this.bestAsk === NO_PRICE) return NaN;
-    return this.bestAsk - this.bestBid;
+    return spreadTicksOf(this.bestBid, this.bestAsk);
   }
 
   microPriceTicks(): number {
     if (this.bestBid === NO_PRICE || this.bestAsk === NO_PRICE) return NaN;
-    const bs = this.sizeAt(SIDE_BID, this.bestBid);
-    const as = this.sizeAt(SIDE_ASK, this.bestAsk);
-    const total = bs + as;
-    if (total === 0) return this.midTicks();
-    return (this.bestBid * as + this.bestAsk * bs) / total;
+    return microPriceTicksOf(
+      this.bestBid,
+      this.bestAsk,
+      this.sizeAt(SIDE_BID, this.bestBid),
+      this.sizeAt(SIDE_ASK, this.bestAsk),
+    );
   }
 
   sizeAt(side: Side, priceTicks: Ticks): number {
@@ -295,32 +298,18 @@ export class L3Book implements OrderBook {
   }
 
   depth(side: Side, levels: number, out: LevelView[]): number {
-    let found = 0;
-    const base = side * this.levelCount;
-    if (side === SIDE_BID) {
-      if (this.bestBid === NO_PRICE) return 0;
-      for (let t = this.bestBid; t >= this.minPriceTicks && found < levels; t--) {
-        const s = this.lvlSize[base + (t - this.minPriceTicks)];
-        if (s > 0) {
-          out[found].priceTicks = t;
-          out[found].size = s;
-          out[found].orderCount = this.lvlOrders[base + (t - this.minPriceTicks)];
-          found++;
-        }
-      }
-      return found;
-    }
-    if (this.bestAsk === NO_PRICE) return 0;
-    for (let t = this.bestAsk; t <= this.maxPriceTicks && found < levels; t++) {
-      const s = this.lvlSize[base + (t - this.minPriceTicks)];
-      if (s > 0) {
-        out[found].priceTicks = t;
-        out[found].size = s;
-        out[found].orderCount = this.lvlOrders[base + (t - this.minPriceTicks)];
-        found++;
-      }
-    }
-    return found;
+    return scanDepth(
+      side,
+      levels,
+      out,
+      this.bestBid,
+      this.bestAsk,
+      this.minPriceTicks,
+      this.maxPriceTicks,
+      side * this.levelCount,
+      this.lvlSize,
+      this.lvlOrders,
+    );
   }
 
   registerCursor(side: Side, priceTicks: Ticks): CursorId {

@@ -1,5 +1,27 @@
-import type { CursorId, EventType, Side, Ticks } from './enums';
+import { NO_PRICE, type CursorId, type EventType, type Side, type Ticks } from './enums';
 import type { Nanos } from './time';
+
+export function midTicksOf(bestBidTicks: Ticks, bestAskTicks: Ticks): number {
+  if (bestBidTicks === NO_PRICE || bestAskTicks === NO_PRICE) return NaN;
+  return (bestBidTicks + bestAskTicks) / 2;
+}
+
+export function spreadTicksOf(bestBidTicks: Ticks, bestAskTicks: Ticks): number {
+  if (bestBidTicks === NO_PRICE || bestAskTicks === NO_PRICE) return NaN;
+  return bestAskTicks - bestBidTicks;
+}
+
+export function microPriceTicksOf(
+  bestBidTicks: Ticks,
+  bestAskTicks: Ticks,
+  bestBidSize: number,
+  bestAskSize: number,
+): number {
+  if (bestBidTicks === NO_PRICE || bestAskTicks === NO_PRICE) return NaN;
+  const total = bestBidSize + bestAskSize;
+  if (total === 0) return (bestBidTicks + bestAskTicks) / 2;
+  return (bestBidTicks * bestAskSize + bestAskTicks * bestBidSize) / total;
+}
 
 export interface LevelView {
   priceTicks: Ticks;

@@ -38,3 +38,12 @@ export class KillSwitchError extends Error {
     this.reason = reason;
   }
 }
+
+export class PromotionGateError extends Error {
+  readonly reasons: readonly string[];
+  constructor(reasons: readonly string[]) {
+    super(`model failed promotion gate: ${reasons.join('; ')}`);
+    this.name = 'PromotionGateError';
+    this.reasons = reasons;
+  }
+}
