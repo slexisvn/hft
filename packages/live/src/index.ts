@@ -9,3 +9,4 @@ export * from './paper_gateway';
 export * from './guarded_gateway';
 export * from './risk_gateway';
 export * from './session';
+export * from './stats';

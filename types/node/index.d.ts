@@ -1,4 +1,7 @@
 declare module 'node:fs' {
+  export interface ReadStreamLike {
+    pipe<T>(destination: T): T;
+  }
   export function readFileSync(path: string, encoding: 'utf8'): string;
   export function writeFileSync(path: string, data: string, encoding?: 'utf8'): void;
   export function appendFileSync(path: string, data: string, encoding?: 'utf8'): void;
@@ -6,15 +9,34 @@ declare module 'node:fs' {
   export function mkdirSync(path: string, options?: { recursive?: boolean }): void;
   export function readdirSync(path: string): string[];
   export function statSync(path: string): { isDirectory(): boolean; isFile(): boolean };
+  export function createReadStream(path: string): ReadStreamLike;
 }
 
 declare module 'node:path' {
   export function join(...parts: string[]): string;
   export function resolve(...parts: string[]): string;
+  export function normalize(p: string): string;
   export function dirname(p: string): string;
   export function basename(p: string, ext?: string): string;
   export function extname(p: string): string;
   export const sep: string;
+}
+
+declare module 'node:http' {
+  export interface IncomingMessage {
+    url?: string;
+    method?: string;
+  }
+  export interface ServerResponse {
+    setHeader(name: string, value: string): void;
+    writeHead(status: number, headers?: Record<string, string>): void;
+    end(body?: string): void;
+  }
+  export interface Server {
+    listen(port: number): Server;
+    close(callback?: () => void): void;
+  }
+  export function createServer(handler: (req: IncomingMessage, res: ServerResponse) => void): Server;
 }
 
 declare module 'node:perf_hooks' {

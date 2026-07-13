@@ -19,6 +19,7 @@
     "apps/train",
     "apps/live",
     "apps/compare",
+    "apps/monitor",
     "bench"
   ],
   "scripts": {
@@ -32,7 +33,9 @@
     "train": "npm run build && node apps/train/dist/main.js",
     "sweep": "npm run build && node apps/sweep/dist/main.js",
     "live": "npm run build && node apps/live/dist/main.js",
-    "compare": "npm run build && node apps/compare/dist/main.js"
+    "compare": "npm run build && node apps/compare/dist/main.js",
+    "monitor": "npm run build && node apps/monitor/dist/main.js",
+    "monitor:replay": "npm run build && node apps/monitor/dist/main.js --replay"
   },
   "dependencies": {},
   "devDependencies": {

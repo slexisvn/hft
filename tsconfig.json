@@ -16,6 +16,7 @@
     { "path": "apps/train" },
     { "path": "apps/live" },
     { "path": "apps/compare" },
+    { "path": "apps/monitor" },
     { "path": "bench" }
   ]
 }

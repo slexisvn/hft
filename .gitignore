@@ -5,6 +5,10 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# ui dashboard (separate vite build system)
+ui/node_modules/
+ui/dist/
+
 # market data: LOBSTER samples are downloaded, never committed
 data/*
 !data/.gitkeep
